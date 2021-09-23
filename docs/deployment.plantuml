@@ -1,0 +1,60 @@
+@startuml deployment
+
+actor user
+
+rectangle AWS {
+    frame Production {
+        component ApiGateway as "API gateway"
+
+        component Cognito
+
+        component Commands <<Lambda>> as "Create/Update/Delete"
+
+        collections MutatePageView <<Lambda>>
+
+        component Get <<Lambda>>
+
+        database PageView <<DocumentDB>>
+
+        queue EventStream <<Kinesis>>
+    }
+
+    frame DataLake {
+        component BackupEvents <<Lambda>>
+
+        component DataWarehouse <<Athena>> as "Data Warehouse"
+
+        storage EventsStorage <<S3>>
+    }
+
+    actor Researcher
+}
+
+user <-> Cognito : auth
+Cognito -[hidden]- ApiGateway
+
+user <-> ApiGateway
+
+ApiGateway -> Commands
+ApiGateway <- Get
+
+Commands -> EventStream
+
+EventStream -> MutatePageView
+EventStream -> BackupEvents : schedule
+EventStream -[hidden]- BackupEvents
+
+MutatePageView -> PageView
+
+BackupEvents -> EventsStorage
+
+Get <- PageView
+
+Get -[hidden]- Commands
+
+EventsStorage -> DataWarehouse
+
+DataWarehouse <-> Researcher
+DataWarehouse -[hidden]- Researcher
+
+@enduml
